@@ -6,8 +6,6 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-tetrisdb}
       MYSQL_USER: ${MYSQL_USER:-tetris}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-tetrispass}
-    ports:
-      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -24,6 +22,14 @@ services:
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8765}
     ports:
       - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  adminer:
+    image: adminer
+    ports:
+      - "8080:8080"
     depends_on:
       db:
         condition: service_healthy
