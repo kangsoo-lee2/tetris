@@ -1,29 +1,22 @@
 #!/bin/bash
-# Tetris 백엔드 서버 시작
+# Tetris 서버 시작 (Docker Compose)
 # 실행: bash start.sh
 # 접속: http://localhost:8765/index.html
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-echo "=== Tetris Backend ==="
-pip install -r requirements.txt -q
+if [ ! -f .env ]; then
+    cp .env.example .env
+    echo ".env 파일이 없어 .env.example에서 복사했습니다. 필요시 내용을 수정하세요."
+fi
 
-echo "Starting FastAPI on :8000 ..."
-python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload &
-BACKEND_PID=$!
-
-sleep 1
-
-echo "Starting static file server on :8765 ..."
-python3 -m http.server 8765 &
-STATIC_PID=$!
+echo "=== Tetris (Docker Compose) ==="
+docker compose up --build -d
 
 echo ""
-echo "  Backend API : http://localhost:8000/docs"
 echo "  Game        : http://localhost:8765/index.html"
+echo "  Backend API : http://localhost:8000/docs"
 echo ""
-echo "Press Ctrl+C to stop both servers."
-
-trap "kill $BACKEND_PID $STATIC_PID 2>/dev/null; exit" INT TERM
-wait
+echo "로그 확인: docker compose logs -f"
+echo "종료:     docker compose down"

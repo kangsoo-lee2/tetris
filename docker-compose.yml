@@ -1,0 +1,43 @@
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-tetrisdb}
+      MYSQL_USER: ${MYSQL_USER:-tetris}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-tetrispass}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpass}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  backend:
+    build: .
+    environment:
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-tetris}:${MYSQL_PASSWORD:-tetrispass}@db:3306/${MYSQL_DATABASE:-tetrisdb}
+      SECRET_KEY: ${SECRET_KEY:-tetris-dev-only-secret-do-not-use-in-prod}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8765}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  static:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: python3 -m http.server 8765
+    ports:
+      - "8765:8765"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
