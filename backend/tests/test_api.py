@@ -43,7 +43,15 @@ class TestRegister:
         assert client.post(REGISTER_URL, json=USER_B).status_code == 201
 
     def test_invalid_email_format_returns_422(self, client):
-        resp = client.post(REGISTER_URL, json={"email": "not-an-email", "nickname": "x", "password": "pw"})
+        resp = client.post(REGISTER_URL, json={"email": "not-an-email", "nickname": "x", "password": "pass1234"})
+        assert resp.status_code == 422
+
+    def test_short_password_returns_422(self, client):
+        resp = client.post(REGISTER_URL, json={"email": "x@test.com", "nickname": "x", "password": "short"})
+        assert resp.status_code == 422
+
+    def test_empty_nickname_returns_422(self, client):
+        resp = client.post(REGISTER_URL, json={"email": "x@test.com", "nickname": "   ", "password": "pass1234"})
         assert resp.status_code == 422
 
 
@@ -196,7 +204,7 @@ class TestLeaderboard:
     def test_max_10_entries(self, client):
         # 11명 등록 후 점수 제출
         for i in range(11):
-            u = {"email": f"u{i}@test.com", "nickname": f"user{i}", "password": "pw"}
+            u = {"email": f"u{i}@test.com", "nickname": f"user{i}", "password": "password123"}
             token = register_and_login(client, u)
             submit_score(client, token, score=(i + 1) * 100)
         board = client.get(LEADERBOARD_URL).json()

@@ -1,5 +1,6 @@
 import os
-from datetime import datetime, timedelta
+import warnings
+from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
@@ -8,7 +9,13 @@ from sqlalchemy.orm import Session
 from .database import get_db
 from .models import User
 
-SECRET_KEY = os.getenv("SECRET_KEY", "tetris-secret-key-change-in-prod")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    warnings.warn(
+        "SECRET_KEY 환경변수가 설정되지 않았습니다. 프로덕션에서는 반드시 설정하세요.",
+        stacklevel=1,
+    )
+    SECRET_KEY = "tetris-dev-only-secret-do-not-use-in-prod"
 ALGORITHM  = "HS256"
 TOKEN_EXP_HOURS = 72
 
@@ -25,7 +32,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def create_token(user_id: int) -> str:
-    exp = datetime.utcnow() + timedelta(hours=TOKEN_EXP_HOURS)
+    exp = datetime.now(timezone.utc) + timedelta(hours=TOKEN_EXP_HOURS)
     return jwt.encode({"sub": str(user_id), "exp": exp}, SECRET_KEY, algorithm=ALGORITHM)
 
 

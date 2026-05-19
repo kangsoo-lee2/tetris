@@ -1,4 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timezone
+
+
+def _utcnow():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from .database import Base
@@ -11,7 +15,7 @@ class User(Base):
     email      = Column(String, unique=True, index=True, nullable=False)
     nickname   = Column(String, nullable=False)
     hashed_pw  = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
     scores = relationship("Score", back_populates="user", cascade="all, delete-orphan")
 
@@ -24,6 +28,6 @@ class Score(Base):
     score      = Column(Integer, nullable=False)
     lines      = Column(Integer, nullable=False, default=0)
     level      = Column(Integer, nullable=False, default=1)
-    played_at  = Column(DateTime, default=datetime.utcnow)
+    played_at  = Column(DateTime, default=_utcnow)
 
     user = relationship("User", back_populates="scores")

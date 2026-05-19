@@ -56,8 +56,8 @@ class TestGetCurrentUser:
     """get_current_user는 FastAPI 의존성이므로 API를 통해 검증."""
 
     def test_valid_token_allows_access(self, client):
-        client.post("/api/register", json={"email": "a@b.com", "nickname": "alice", "password": "pw"})
-        token = client.post("/api/login", json={"email": "a@b.com", "password": "pw"}).json()["access_token"]
+        client.post("/api/register", json={"email": "a@b.com", "nickname": "alice", "password": "pass1234"})
+        token = client.post("/api/login", json={"email": "a@b.com", "password": "pass1234"}).json()["access_token"]
         resp = client.get("/api/me", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 200
 

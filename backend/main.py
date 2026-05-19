@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -15,9 +16,10 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Tetris API")
 
+_allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:8765").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -87,16 +89,33 @@ def my_scores(
 
 @app.get("/api/leaderboard", response_model=list[LeaderboardEntry])
 def leaderboard(db: Session = Depends(get_db)):
-    # 각 사용자의 최고 점수 1개씩만 추출
-    subq = (
+    # 각 사용자의 최고 점수 행 ID를 먼저 구한 뒤 조인 — 동점 중복 방지
+    best_id_subq = (
+        db.query(func.max(Score.id).label("id"))
+        .group_by(Score.user_id)
+        .having(Score.score == db.query(func.max(Score.score))
+                .filter(Score.user_id == Score.user_id)
+                .correlate(Score)
+                .scalar_subquery())
+        .subquery()
+    )
+    # 유저별 최고점 row의 id를 구하는 단순한 방법
+    best_score_subq = (
         db.query(Score.user_id, func.max(Score.score).label("best"))
+        .group_by(Score.user_id)
+        .subquery()
+    )
+    best_id_subq = (
+        db.query(func.min(Score.id).label("id"))
+        .join(best_score_subq, (best_score_subq.c.user_id == Score.user_id) &
+              (best_score_subq.c.best == Score.score))
         .group_by(Score.user_id)
         .subquery()
     )
     rows = (
         db.query(Score, User.nickname)
         .join(User, User.id == Score.user_id)
-        .join(subq, (subq.c.user_id == Score.user_id) & (subq.c.best == Score.score))
+        .filter(Score.id.in_(db.query(best_id_subq.c.id)))
         .order_by(Score.score.desc())
         .limit(10)
         .all()
