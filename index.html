@@ -1,468 +1,1070 @@
+<!-- 배포 URL: https://kangsoo-lee2.github.io/tetris/ -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tetris</title>
+  <title>TETRIS</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      background: #0f0f23;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      font-family: 'Courier New', monospace;
-      color: #fff;
+    :root {
+      --cyan:   #00f5ff;
+      --purple: #b44fff;
+      --pink:   #ff2d78;
+      --yellow: #ffe600;
+      --green:  #00ff88;
+      --bg:     #05050f;
+      --panel:  #0d0d22;
+      --border: #2a2a5a;
     }
+    body { background: var(--bg); font-family: 'Courier New', monospace; color: #fff; overflow: hidden; user-select: none; }
 
-    .wrapper {
-      display: flex;
-      gap: 24px;
-      align-items: flex-start;
+    /* ── shared ── */
+    .hidden { display: none !important; }
+    .page   { position: fixed; inset: 0; display: flex; justify-content: center; align-items: center; }
+
+    input, button { font-family: 'Courier New', monospace; }
+
+    .input-field {
+      width: 100%;
+      padding: 10px 14px;
+      background: #0a0a1e;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: #ccc;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
     }
+    .input-field:focus { border-color: var(--cyan); }
+    .input-field::placeholder { color: #333355; }
 
-    /* ── 게임 캔버스 ── */
-    #game-canvas {
-      border: 2px solid #4a4a8a;
-      box-shadow: 0 0 20px #4a4a8a88, inset 0 0 20px #00000088;
-      background: #111128;
-      display: block;
-    }
-
-    /* ── 사이드 패널 ── */
-    .panel {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      min-width: 140px;
-    }
-
-    .box {
-      background: #1a1a3a;
-      border: 1px solid #4a4a8a;
-      border-radius: 8px;
-      padding: 14px 16px;
-    }
-
-    .box h3 {
-      font-size: 11px;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: #8888cc;
-      margin-bottom: 8px;
-    }
-
-    .box .value {
-      font-size: 28px;
-      font-weight: bold;
-      color: #eeeeff;
-    }
-
-    #next-canvas {
-      display: block;
-      margin-top: 6px;
-    }
-
-    /* ── 버튼 ── */
     .btn {
       width: 100%;
       padding: 10px;
       border: none;
       border-radius: 6px;
-      font-family: inherit;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: bold;
       letter-spacing: 1px;
       cursor: pointer;
-      transition: filter 0.15s;
+      text-transform: uppercase;
+      transition: filter 0.15s, transform 0.1s;
     }
-    .btn:hover { filter: brightness(1.2); }
-    .btn-primary { background: #5555cc; color: #fff; }
-    .btn-secondary { background: #333355; color: #aaa; }
+    .btn:hover  { filter: brightness(1.3); transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-primary   { background: #2828aa; color: #fff; border: 1px solid #4444cc; }
+    .btn-secondary { background: #0f0f22; color: #8888aa; border: 1px solid var(--border); }
+    .btn-danger    { background: #440000; color: #ff6666; border: 1px solid #880000; }
+    .btn-cyan {
+      background: transparent; color: var(--cyan);
+      border: 2px solid var(--cyan); font-size: 18px;
+      letter-spacing: 5px; padding: 16px 64px;
+      position: relative; overflow: hidden;
+    }
+    .btn-cyan::before {
+      content: ''; position: absolute; inset: 0;
+      background: var(--cyan); transform: scaleX(0);
+      transform-origin: left; transition: transform 0.2s; z-index: -1;
+    }
+    .btn-cyan:hover { color: #000; box-shadow: 0 0 30px var(--cyan); }
+    .btn-cyan:hover::before { transform: scaleX(1); }
 
-    /* ── 오버레이 ── */
-    #overlay {
-      position: fixed;
-      inset: 0;
-      background: #000000cc;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      gap: 16px;
-      z-index: 10;
-    }
-    #overlay h2 {
-      font-size: 36px;
-      letter-spacing: 4px;
-      color: #aaaaff;
-    }
-    #overlay p {
-      color: #888;
-      font-size: 14px;
-    }
-    #overlay .btn {
-      width: 180px;
-      padding: 12px;
-      font-size: 16px;
-    }
-    #overlay.hidden { display: none; }
+    .err-msg { font-size: 11px; color: var(--pink); text-align: center; min-height: 16px; }
 
-    /* ── 키 가이드 ── */
-    .keys { font-size: 11px; color: #666688; line-height: 1.8; }
-    .keys span { color: #9999dd; }
+    /* ── landing ── */
+    #landing { z-index: 10; }
+    #bg-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+    .landing-inner {
+      position: relative; z-index: 1;
+      display: flex; flex-direction: column; align-items: center; gap: 20px;
+    }
+
+    .tetris-logo { display: flex; gap: 5px; }
+    .logo-letter {
+      width: 58px; height: 58px;
+      display: flex; justify-content: center; align-items: center;
+      font-size: 30px; font-weight: bold; border-radius: 8px;
+      animation: logoBounce 2.2s ease-in-out infinite;
+    }
+    @keyframes logoBounce {
+      0%,100% { transform: translateY(0) scale(1); }
+      50%      { transform: translateY(-8px) scale(1.06); }
+    }
+    .logo-letter:nth-child(1){background:#00cfcf;color:#000;animation-delay:0s}
+    .logo-letter:nth-child(2){background:#0044ff;color:#fff;animation-delay:.12s}
+    .logo-letter:nth-child(3){background:#ff8800;color:#000;animation-delay:.24s}
+    .logo-letter:nth-child(4){background:#ffee00;color:#000;animation-delay:.36s}
+    .logo-letter:nth-child(5){background:#00cc44;color:#000;animation-delay:.48s}
+    .logo-letter:nth-child(6){background:#cc00cc;color:#fff;animation-delay:.60s}
+
+    .landing-sub { font-size: 11px; letter-spacing: 5px; color: #444466; text-transform: uppercase; }
+
+    .hi-card {
+      background: rgba(13,13,34,0.88);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 44px;
+      text-align: center;
+    }
+    .hi-card .lbl { font-size: 10px; letter-spacing: 3px; color: #444466; text-transform: uppercase; }
+    .hi-card .val { font-size: 28px; color: var(--yellow); text-shadow: 0 0 16px var(--yellow); margin-top: 4px; }
+    .hi-card .by  { font-size: 10px; color: #333355; margin-top: 2px; }
+
+    .auth-row { display: flex; gap: 10px; }
+    .auth-row .btn { padding: 12px 28px; width: auto; font-size: 13px; }
+
+    .landing-controls {
+      font-size: 10px; color: #333355; line-height: 2.2; letter-spacing: 1px; text-align: center;
+    }
+    .landing-controls span { color: #666688; }
+
+    /* ── auth modal ── */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.82);
+      display: flex; justify-content: center; align-items: center;
+      z-index: 200;
+    }
+    .modal {
+      background: #0d0d22;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 32px;
+      width: 340px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .modal h2 { font-size: 16px; letter-spacing: 4px; color: var(--cyan); text-align: center; }
+    .modal-switch { font-size: 11px; color: #444466; text-align: center; }
+    .modal-switch a { color: var(--cyan); cursor: pointer; text-decoration: underline; }
+
+    /* ── game page ── */
+    #game-page { z-index: 5; }
+    .game-wrapper { display: flex; gap: 12px; align-items: flex-start; }
+
+    #game-canvas {
+      border: 2px solid var(--border);
+      box-shadow: 0 0 40px rgba(0,245,255,0.10), inset 0 0 30px #00000099;
+      background: #060614;
+    }
+    @keyframes shake {
+      0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}
+      40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}
+    }
+    .do-shake { animation: shake 0.35s ease; }
+
+    .side-panel { display: flex; flex-direction: column; gap: 8px; width: 122px; }
+
+    .pbox {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 10px;
+    }
+    .pbox h3 { font-size: 8px; letter-spacing: 3px; text-transform: uppercase; color: #444466; margin-bottom: 4px; }
+    .pbox .val { font-size: 22px; font-weight: bold; color: #ddddf0; }
+    .pbox .val.gold { color: var(--yellow); text-shadow: 0 0 8px var(--yellow); }
+    .pbox .val.cyan { color: var(--cyan); text-shadow: 0 0 8px var(--cyan); }
+
+    #hold-canvas, #next-canvas { display: block; margin-top: 4px; }
+
+    .combo-num { font-size: 20px; font-weight: bold; color: var(--pink); display: none; }
+    @keyframes comboPop { 0%{transform:scale(0.4);opacity:0} 60%{transform:scale(1.25)} 100%{transform:scale(1);opacity:1} }
+    .combo-lbl { font-size: 9px; color: #444466; letter-spacing: 2px; }
+
+    .music-btn {
+      width: 100%; padding: 7px;
+      background: #0f0f20; border: 1px solid var(--border);
+      border-radius: 6px; color: #444466;
+      font-family: inherit; font-size: 10px; letter-spacing: 1px;
+      cursor: pointer; text-transform: uppercase; transition: all 0.2s;
+    }
+    .music-btn.on { color: var(--cyan); border-color: var(--cyan); }
+    .music-btn:hover { filter: brightness(1.3); }
+
+    .keys { font-size: 9px; color: #333355; line-height: 2; }
+    .keys span { color: #555577; }
+
+    /* canvas overlay */
+    #cv-overlay {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.82);
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center; gap: 12px; z-index: 10;
+    }
+    #cv-overlay h2 { font-size: 24px; letter-spacing: 6px; color: var(--cyan); text-shadow: 0 0 24px var(--cyan); }
+    #cv-overlay p  { color: #555577; font-size: 11px; letter-spacing: 1px; }
+    #cv-overlay .btn { width: 160px; padding: 10px; font-size: 12px; }
+
+    /* leaderboard panel */
+    .lb-panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      width: 200px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .lb-panel h3 { font-size: 9px; letter-spacing: 3px; color: #444466; text-transform: uppercase; text-align: center; }
+    .lb-row {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 10px; padding: 4px 6px;
+      border-radius: 4px; background: #0a0a1a;
+    }
+    .lb-rank { width: 16px; color: #333355; text-align: right; flex-shrink: 0; }
+    .lb-rank.top1 { color: var(--yellow); font-weight: bold; }
+    .lb-rank.top2 { color: #c0c0c0; }
+    .lb-rank.top3 { color: #cd7f32; }
+    .lb-nick { flex: 1; color: #aaaacc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lb-score { color: var(--cyan); font-weight: bold; flex-shrink: 0; }
+    .lb-me .lb-nick { color: var(--green); }
+    .lb-empty { font-size: 10px; color: #333355; text-align: center; padding: 8px 0; }
+
+    /* particles & effects */
+    #particle-layer { position: fixed; inset: 0; pointer-events: none; z-index: 50; overflow: hidden; }
+    .particle { position: absolute; border-radius: 2px; animation: pfly 0.85s ease forwards; }
+    @keyframes pfly { 0%{transform:translate(0,0)scale(1);opacity:1} 100%{transform:translate(var(--tx),var(--ty))scale(0);opacity:0} }
+
+    @keyframes lvFlash { 0%{background:rgba(180,79,255,0.3)} 100%{background:transparent} }
+    .lv-flash { position: fixed; inset: 0; pointer-events: none; z-index: 200; animation: lvFlash 0.45s ease forwards; }
+
+    .float-text {
+      position: fixed; font-family: 'Courier New', monospace; font-weight: bold;
+      pointer-events: none; z-index: 150; text-shadow: 0 0 12px currentColor;
+      animation: floatUp 1.1s ease forwards;
+    }
+    @keyframes floatUp { 0%{transform:translateY(0)scale(1);opacity:1} 100%{transform:translateY(-90px)scale(0.8);opacity:0} }
+
+    /* user badge */
+    .user-badge {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 10px; color: #555577;
+      padding: 6px 8px;
+      background: #0a0a1a;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+    .user-badge .nick { color: var(--green); font-weight: bold; }
+    .user-badge .logout-btn {
+      margin-left: auto; cursor: pointer; color: #333355;
+      font-size: 9px; background: none; border: none;
+      text-transform: uppercase; letter-spacing: 1px;
+      font-family: inherit; padding: 0;
+    }
+    .user-badge .logout-btn:hover { color: var(--pink); }
+
+    /* toast */
+    #toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+      background: #1a1a3a; border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 22px;
+      font-size: 12px; color: var(--cyan); z-index: 999;
+      animation: toastIn 0.25s ease;
+      pointer-events: none;
+    }
+    #toast.hidden { display: none; }
+    @keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(10px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
   </style>
 </head>
 <body>
 
-<div id="overlay">
-  <h2>TETRIS</h2>
-  <p>블록을 쌓아 줄을 완성하세요</p>
-  <button class="btn btn-primary" id="start-btn">게임 시작</button>
-</div>
+<div id="particle-layer"></div>
+<div id="toast" class="hidden"></div>
 
-<div class="wrapper">
-  <canvas id="game-canvas" width="300" height="600"></canvas>
+<!-- ══════ LANDING ══════ -->
+<div id="landing" class="page">
+  <canvas id="bg-canvas"></canvas>
+  <div class="landing-inner">
+    <div class="tetris-logo">
+      <div class="logo-letter">T</div><div class="logo-letter">E</div>
+      <div class="logo-letter">T</div><div class="logo-letter">R</div>
+      <div class="logo-letter">I</div><div class="logo-letter">S</div>
+    </div>
+    <div class="landing-sub">Classic Block Puzzle</div>
 
-  <div class="panel">
-    <div class="box">
-      <h3>Score</h3>
-      <div class="value" id="score">0</div>
+    <div class="hi-card">
+      <div class="lbl">Global Best Score</div>
+      <div class="val" id="global-best-val">—</div>
+      <div class="by"  id="global-best-by"></div>
     </div>
 
-    <div class="box">
-      <h3>Level</h3>
-      <div class="value" id="level">1</div>
+    <!-- 로그인 상태에 따라 토글 -->
+    <div id="landing-guest" class="auth-row">
+      <button class="btn btn-primary"   id="open-login-btn">Login</button>
+      <button class="btn btn-secondary" id="open-reg-btn">Register</button>
+    </div>
+    <div id="landing-user" class="hidden" style="display:flex;flex-direction:column;align-items:center;gap:14px">
+      <div class="user-badge">
+        <span>👤</span>
+        <span class="nick" id="landing-nick"></span>
+        <button class="logout-btn" id="landing-logout">Logout</button>
+      </div>
+      <button class="btn btn-cyan" id="play-btn">PLAY</button>
     </div>
 
-    <div class="box">
-      <h3>Lines</h3>
-      <div class="value" id="lines">0</div>
-    </div>
-
-    <div class="box">
-      <h3>Next</h3>
-      <canvas id="next-canvas" width="120" height="100"></canvas>
-    </div>
-
-    <button class="btn btn-primary" id="pause-btn">일시정지</button>
-    <button class="btn btn-secondary" id="restart-btn">재시작</button>
-
-    <div class="box keys">
-      <h3>Controls</h3>
-      <span>←→</span> 이동<br>
-      <span>↑</span> 회전<br>
-      <span>↓</span> 빠르게<br>
-      <span>Space</span> 즉시 낙하<br>
-      <span>P</span> 일시정지
+    <div class="landing-controls">
+      <span>← →</span> 이동 &nbsp; <span>↑</span> 회전 &nbsp; <span>↓</span> 소프트 드롭<br>
+      <span>Space</span> 즉시 낙하 &nbsp; <span>C</span> 홀드 &nbsp; <span>P</span> 일시정지 &nbsp; <span>M</span> 음악
     </div>
   </div>
 </div>
 
-<script>
-// ── 상수 ──────────────────────────────────────────────
-const COLS = 10, ROWS = 20, BLOCK = 30;
-const COLORS = [
-  null,
-  '#00cfcf', // I  cyan
-  '#0044ff', // J  blue
-  '#ff8800', // L  orange
-  '#ffee00', // O  yellow
-  '#00cc44', // S  green
-  '#cc00cc', // T  purple
-  '#ff2244', // Z  red
-];
+<!-- ══════ AUTH MODALS ══════ -->
+<div id="login-modal"    class="modal-backdrop hidden">
+  <div class="modal">
+    <h2>LOGIN</h2>
+    <input id="li-email"    class="input-field" type="email"    placeholder="이메일" />
+    <input id="li-password" class="input-field" type="password" placeholder="비밀번호" />
+    <div class="err-msg" id="li-err"></div>
+    <button class="btn btn-primary" id="li-submit">로그인</button>
+    <div class="modal-switch">계정이 없으신가요? <a id="go-register">회원가입</a></div>
+    <button class="btn btn-secondary" id="li-close">닫기</button>
+  </div>
+</div>
 
+<div id="register-modal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h2>REGISTER</h2>
+    <input id="reg-email"    class="input-field" type="email"    placeholder="이메일" />
+    <input id="reg-nickname" class="input-field" type="text"     placeholder="닉네임 (2~12자)" />
+    <input id="reg-password" class="input-field" type="password" placeholder="비밀번호 (8자 이상)" />
+    <div class="err-msg" id="reg-err"></div>
+    <button class="btn btn-primary" id="reg-submit">회원가입</button>
+    <div class="modal-switch">이미 계정이 있으신가요? <a id="go-login">로그인</a></div>
+    <button class="btn btn-secondary" id="reg-close">닫기</button>
+  </div>
+</div>
+
+<!-- ══════ GAME PAGE ══════ -->
+<div id="game-page" class="page hidden">
+  <div class="game-wrapper">
+
+    <!-- LEFT PANEL -->
+    <div class="side-panel">
+      <div class="pbox">
+        <h3>Score</h3>
+        <div class="val" id="score">0</div>
+      </div>
+      <div class="pbox">
+        <h3>Best (me)</h3>
+        <div class="val gold" id="my-best">0</div>
+      </div>
+      <div class="pbox">
+        <h3>Hold <span style="font-size:7px;color:#333355">(C)</span></h3>
+        <canvas id="hold-canvas" width="110" height="74"></canvas>
+      </div>
+      <button class="music-btn on" id="music-btn">♪ Music ON</button>
+      <button class="btn btn-secondary" id="back-btn" style="font-size:10px">← Menu</button>
+    </div>
+
+    <!-- CANVAS -->
+    <div style="position:relative;">
+      <canvas id="game-canvas" width="300" height="600"></canvas>
+      <div id="cv-overlay">
+        <h2 id="ov-title">TETRIS</h2>
+        <p  id="ov-sub">블록을 쌓아 줄을 완성하세요</p>
+        <button class="btn btn-primary" id="start-btn">게임 시작</button>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="side-panel">
+      <div class="pbox">
+        <h3>Level</h3>
+        <div class="val" id="level">1</div>
+      </div>
+      <div class="pbox">
+        <h3>Lines</h3>
+        <div class="val" id="lines">0</div>
+      </div>
+      <div class="pbox">
+        <h3>Combo</h3>
+        <div class="combo-num" id="combo-num">x1</div>
+        <div class="combo-lbl" id="combo-lbl">—</div>
+      </div>
+      <div class="pbox">
+        <h3>Next</h3>
+        <canvas id="next-canvas" width="110" height="84"></canvas>
+      </div>
+      <button class="btn btn-primary"   id="pause-btn">Pause</button>
+      <button class="btn btn-secondary" id="restart-btn">Restart</button>
+      <div class="pbox keys">
+        <h3>Keys</h3>
+        <span>← →</span> Move<br>
+        <span>↑</span> Rotate<br>
+        <span>↓</span> Soft drop<br>
+        <span>SPC</span> Hard drop<br>
+        <span>C</span> Hold<br>
+        <span>P</span> Pause<br>
+        <span>M</span> Music
+      </div>
+    </div>
+
+    <!-- LEADERBOARD -->
+    <div class="lb-panel">
+      <h3>🏆 Leaderboard</h3>
+      <div id="lb-list"><div class="lb-empty">Loading…</div></div>
+      <button class="btn btn-secondary" id="lb-refresh" style="font-size:9px;padding:5px">↻ Refresh</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════
+const API = 'http://localhost:8000';
+
+// ══════════════════════════════════════════
+// AUTH STATE
+// ══════════════════════════════════════════
+let authToken    = localStorage.getItem('tetris-token')    || null;
+let authNickname = localStorage.getItem('tetris-nickname') || null;
+
+function saveAuth(token, nickname) {
+  authToken = token; authNickname = nickname;
+  localStorage.setItem('tetris-token',    token);
+  localStorage.setItem('tetris-nickname', nickname);
+}
+function clearAuth() {
+  authToken = null; authNickname = null;
+  localStorage.removeItem('tetris-token');
+  localStorage.removeItem('tetris-nickname');
+}
+
+// ══════════════════════════════════════════
+// API HELPERS
+// ══════════════════════════════════════════
+async function apiFetch(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  const res = await fetch(API + path, { ...opts, headers });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+// ══════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════
+let toastTimer = null;
+function showToast(msg, color = '#00f5ff') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.style.color = color;
+  el.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add('hidden'), 2400);
+}
+
+// ══════════════════════════════════════════
+// LANDING STATE
+// ══════════════════════════════════════════
+function refreshLandingAuth() {
+  if (authToken && authNickname) {
+    document.getElementById('landing-guest').classList.add('hidden');
+    document.getElementById('landing-user').classList.remove('hidden');
+    document.getElementById('landing-nick').textContent = authNickname;
+  } else {
+    document.getElementById('landing-guest').classList.remove('hidden');
+    document.getElementById('landing-user').classList.add('hidden');
+  }
+}
+
+async function loadGlobalBest() {
+  try {
+    const lb = await apiFetch('/api/leaderboard');
+    if (lb.length > 0) {
+      document.getElementById('global-best-val').textContent = lb[0].score.toLocaleString();
+      document.getElementById('global-best-by').textContent  = `by ${lb[0].nickname}`;
+    } else {
+      document.getElementById('global-best-val').textContent = '—';
+      document.getElementById('global-best-by').textContent  = '';
+    }
+  } catch (_) {}
+}
+
+// ══════════════════════════════════════════
+// MODALS
+// ══════════════════════════════════════════
+function openModal(id)  { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+document.getElementById('open-login-btn').addEventListener('click', () => openModal('login-modal'));
+document.getElementById('open-reg-btn').addEventListener('click',   () => openModal('register-modal'));
+document.getElementById('li-close').addEventListener('click',  () => closeModal('login-modal'));
+document.getElementById('reg-close').addEventListener('click', () => closeModal('register-modal'));
+document.getElementById('go-register').addEventListener('click', () => { closeModal('login-modal');    openModal('register-modal'); });
+document.getElementById('go-login').addEventListener('click',    () => { closeModal('register-modal'); openModal('login-modal');    });
+
+document.getElementById('li-submit').addEventListener('click', async () => {
+  const email = document.getElementById('li-email').value.trim();
+  const pw    = document.getElementById('li-password').value;
+  const err   = document.getElementById('li-err');
+  err.textContent = '';
+  try {
+    const res = await apiFetch('/api/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password: pw }),
+    });
+    saveAuth(res.access_token, res.nickname);
+    closeModal('login-modal');
+    refreshLandingAuth();
+    showToast(`환영합니다, ${res.nickname}!`, '#00ff88');
+  } catch (e) { err.textContent = e.message; }
+});
+
+document.getElementById('reg-submit').addEventListener('click', async () => {
+  const email = document.getElementById('reg-email').value.trim();
+  const nick  = document.getElementById('reg-nickname').value.trim();
+  const pw    = document.getElementById('reg-password').value;
+  const err   = document.getElementById('reg-err');
+  err.textContent = '';
+  if (nick.length < 2 || nick.length > 12) { err.textContent = '닉네임은 2~12자여야 합니다'; return; }
+  if (pw.length < 8)                        { err.textContent = '비밀번호는 8자 이상이어야 합니다'; return; }
+  try {
+    await apiFetch('/api/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, nickname: nick, password: pw }),
+    });
+    closeModal('register-modal');
+    showToast('회원가입 완료! 로그인해주세요', '#00ff88');
+    openModal('login-modal');
+    document.getElementById('li-email').value = email;
+  } catch (e) { err.textContent = e.message; }
+});
+
+document.getElementById('landing-logout').addEventListener('click', () => {
+  clearAuth();
+  refreshLandingAuth();
+  showToast('로그아웃되었습니다');
+});
+
+// ══════════════════════════════════════════
+// LANDING BG
+// ══════════════════════════════════════════
+const bgCanvas = document.getElementById('bg-canvas');
+const bgCtx    = bgCanvas.getContext('2d');
+let bgPieces   = [], bgRunning = false;
+const BG_COLORS = ['#00cfcf','#0044ff','#ff8800','#ffee00','#00cc44','#cc00cc','#ff2244'];
+
+function mkBgPiece(scatter) {
+  return {
+    x: Math.random() * bgCanvas.width,
+    y: scatter ? Math.random() * bgCanvas.height : -60,
+    sz: 16 + Math.random() * 20, spd: 0.8 + Math.random() * 2,
+    color: BG_COLORS[Math.floor(Math.random() * BG_COLORS.length)],
+    rot: Math.random() * Math.PI * 2, rspd: (Math.random() - 0.5) * 0.025,
+    alpha: 0.10 + Math.random() * 0.16,
+  };
+}
+function initBg() {
+  bgCanvas.width  = window.innerWidth;
+  bgCanvas.height = window.innerHeight;
+  bgPieces = Array.from({ length: 20 }, () => mkBgPiece(true));
+}
+function animateBg() {
+  if (!bgRunning) return;
+  bgCtx.fillStyle = 'rgba(5,5,15,0.25)';
+  bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+  bgPieces.forEach(p => {
+    p.y += p.spd; p.rot += p.rspd;
+    if (p.y > bgCanvas.height + 80) Object.assign(p, mkBgPiece(false));
+    bgCtx.save();
+    bgCtx.globalAlpha = p.alpha;
+    bgCtx.translate(p.x, p.y); bgCtx.rotate(p.rot);
+    bgCtx.fillStyle = p.color;
+    bgCtx.fillRect(-p.sz / 2, -p.sz / 2, p.sz, p.sz);
+    bgCtx.restore();
+  });
+  requestAnimationFrame(animateBg);
+}
+function startBg() { bgRunning = true; initBg(); animateBg(); }
+function stopBg()  { bgRunning = false; }
+window.addEventListener('resize', () => { if (bgRunning) initBg(); });
+startBg();
+
+// ══════════════════════════════════════════
+// AUDIO
+// ══════════════════════════════════════════
+let audioCtx = null, musicOn = true, musicLoop = null, musicNodes = [];
+
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function playTone(freq, type, dur, vol = 0.10, delay = 0) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime + delay);
+  gain.gain.setValueAtTime(vol, audioCtx.currentTime + delay);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + delay + dur);
+  osc.start(audioCtx.currentTime + delay); osc.stop(audioCtx.currentTime + delay + dur + 0.05);
+}
+const sfx = {
+  move:    () => playTone(200, 'square', 0.05, 0.05),
+  rotate:  () => playTone(320, 'square', 0.07, 0.06),
+  lock:    () => playTone(110, 'square', 0.09, 0.09),
+  clear:   n  => { [523,659,784,1047].slice(0,n).forEach((f,i)=>playTone(f,'square',0.15,0.16,i*0.07)); },
+  levelup: () => { [523,659,784].forEach((f,i)=>playTone(f,'square',0.12,0.16,i*0.09)); },
+  gameover:() => { [200,160,130,100].forEach((f,i)=>playTone(f,'sawtooth',0.2,0.13,i*0.13)); },
+};
+const N={A4:440,B4:493.88,C5:523.25,D5:587.33,E5:659.25,F5:698.46,A5:880,R:0};
+const BPM=158, BEAT=60/BPM;
+const THEME=[[N.E5,1],[N.B4,.5],[N.C5,.5],[N.D5,1],[N.C5,.5],[N.B4,.5],[N.A4,1],[N.A4,.5],[N.C5,.5],[N.E5,1],[N.D5,.5],[N.C5,.5],[N.B4,1.5],[N.C5,.5],[N.D5,1],[N.E5,1],[N.C5,1],[N.A4,1],[N.A4,1],[N.R,.5],[N.D5,1],[N.F5,.5],[N.A5,1],[N.A5,.5],[N.F5,.5],[N.E5,1.5],[N.C5,.5],[N.E5,1],[N.D5,.5],[N.C5,.5],[N.B4,1],[N.B4,.5],[N.C5,.5],[N.D5,1],[N.E5,1],[N.C5,1],[N.A4,1],[N.A4,1],[N.R,1]];
+
+function startMusic() {
+  if (musicLoop || !audioCtx) return;
+  let idx = 0, t = audioCtx.currentTime + 0.1;
+  function sched() {
+    while (t < audioCtx.currentTime + 1.6) {
+      const [freq, beats] = THEME[idx % THEME.length];
+      if (freq > 0) {
+        const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.type = 'square'; osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(0.06, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + beats * BEAT * 0.88);
+        osc.start(t); osc.stop(t + beats * BEAT);
+        musicNodes.push(osc);
+      }
+      t += beats * BEAT; idx++;
+    }
+  }
+  sched(); musicLoop = setInterval(sched, 500);
+}
+function stopMusic() {
+  if (musicLoop) { clearInterval(musicLoop); musicLoop = null; }
+  musicNodes.forEach(n => { try { n.stop(); } catch(e){} });
+  musicNodes = [];
+}
+function toggleMusic() {
+  ensureAudio(); musicOn = !musicOn;
+  const btn = document.getElementById('music-btn');
+  if (musicOn) { startMusic(); btn.textContent = '♪ Music ON';  btn.classList.add('on'); }
+  else          { stopMusic();  btn.textContent = '♪ Music OFF'; btn.classList.remove('on'); }
+}
+
+// ══════════════════════════════════════════
+// LEADERBOARD
+// ══════════════════════════════════════════
+async function loadLeaderboard() {
+  const container = document.getElementById('lb-list');
+  try {
+    const lb = await apiFetch('/api/leaderboard');
+    if (!lb.length) { container.innerHTML = '<div class="lb-empty">기록 없음</div>'; return; }
+    container.innerHTML = lb.map(e => {
+      const rankCls = e.rank === 1 ? 'top1' : e.rank === 2 ? 'top2' : e.rank === 3 ? 'top3' : '';
+      const meCls   = authNickname && e.nickname === authNickname ? ' lb-me' : '';
+      return `<div class="lb-row${meCls}">
+        <span class="lb-rank ${rankCls}">${e.rank}</span>
+        <span class="lb-nick">${e.nickname}</span>
+        <span class="lb-score">${e.score.toLocaleString()}</span>
+      </div>`;
+    }).join('');
+  } catch (_) { container.innerHTML = '<div class="lb-empty">로드 실패</div>'; }
+}
+
+async function loadMyBest() {
+  if (!authToken) return;
+  try {
+    const scores = await apiFetch('/api/scores/my');
+    const best = scores.length ? scores[0].score : 0;
+    document.getElementById('my-best').textContent = best.toLocaleString();
+  } catch (_) {}
+}
+
+document.getElementById('lb-refresh').addEventListener('click', loadLeaderboard);
+
+// ══════════════════════════════════════════
+// GAME CONSTANTS
+// ══════════════════════════════════════════
+const COLS = 10, ROWS = 20, BLOCK = 30;
+const COLORS = [null,'#00cfcf','#0044ff','#ff8800','#ffee00','#00cc44','#cc00cc','#ff2244'];
 const SHAPES = [
   null,
-  [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], // I
-  [[2,0,0],[2,2,2],[0,0,0]],                  // J
-  [[0,0,3],[3,3,3],[0,0,0]],                  // L
-  [[4,4],[4,4]],                              // O
-  [[0,5,5],[5,5,0],[0,0,0]],                  // S
-  [[0,6,0],[6,6,6],[0,0,0]],                  // T
-  [[7,7,0],[0,7,7],[0,0,0]],                  // Z
+  [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+  [[2,0,0],[2,2,2],[0,0,0]],
+  [[0,0,3],[3,3,3],[0,0,0]],
+  [[4,4],[4,4]],
+  [[0,5,5],[5,5,0],[0,0,0]],
+  [[0,6,0],[6,6,6],[0,0,0]],
+  [[7,7,0],[0,7,7],[0,0,0]],
 ];
+const LINE_SCORES = [0, 100, 300, 500, 800];
 
-// ── 캔버스 설정 ───────────────────────────────────────
 const canvas  = document.getElementById('game-canvas');
 const ctx     = canvas.getContext('2d');
 const nCanvas = document.getElementById('next-canvas');
 const nCtx    = nCanvas.getContext('2d');
+const hCanvas = document.getElementById('hold-canvas');
+const hCtx    = hCanvas.getContext('2d');
 
-// ── 게임 상태 ─────────────────────────────────────────
-let board, piece, nextPiece;
-let score, lines, level;
-let paused, gameOver;
-let dropInterval, lastDrop;
-let animId;
+// ══════════════════════════════════════════
+// GAME STATE
+// ══════════════════════════════════════════
+let board, piece, nextPiece, holdPiece, holdUsed;
+let score, lines, level, combo;
+let paused, gameOver, gameStarted = false;
+let dropInterval, lastDrop, animId;
 
-// ── 초기화 ────────────────────────────────────────────
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
 function init() {
   board = Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
-  score = 0; lines = 0; level = 1;
+  score = 0; lines = 0; level = 1; combo = 0;
   paused = false; gameOver = false;
+  holdPiece = null; holdUsed = false;
   dropInterval = 800;
-  lastDrop = performance.now();
   nextPiece = randomPiece();
   spawnPiece();
   updateUI();
+  drawHold();
 }
-
 function randomPiece() {
-  const type = Math.floor(Math.random() * 7) + 1;
-  const shape = SHAPES[type].map(r => [...r]);
-  return { type, shape, x: 3, y: 0 };
+  const t = Math.floor(Math.random() * 7) + 1;
+  return { type: t, shape: SHAPES[t].map(r => [...r]), x: 3, y: 0 };
 }
-
 function spawnPiece() {
   piece = nextPiece;
   piece.x = Math.floor((COLS - piece.shape[0].length) / 2);
   piece.y = 0;
   nextPiece = randomPiece();
-  if (collides(piece)) { endGame(); }
+  holdUsed = false;
+  if (collides(piece)) endGame();
 }
 
-// ── 충돌 검사 ─────────────────────────────────────────
+// ══════════════════════════════════════════
+// HOLD
+// ══════════════════════════════════════════
+function doHold() {
+  if (holdUsed || gameOver || paused) return;
+  sfx.rotate();
+  if (!holdPiece) {
+    holdPiece = { type: piece.type, shape: SHAPES[piece.type].map(r => [...r]) };
+    spawnPiece();
+  } else {
+    const tmp = holdPiece;
+    holdPiece = { type: piece.type, shape: SHAPES[piece.type].map(r => [...r]) };
+    piece = { ...tmp, x: Math.floor((COLS - tmp.shape[0].length) / 2), y: 0 };
+    if (collides(piece)) { endGame(); return; }
+  }
+  holdUsed = true;
+  drawHold();
+}
+
+// ══════════════════════════════════════════
+// PHYSICS
+// ══════════════════════════════════════════
 function collides(p, ox = 0, oy = 0) {
-  for (let r = 0; r < p.shape.length; r++) {
+  for (let r = 0; r < p.shape.length; r++)
     for (let c = 0; c < p.shape[r].length; c++) {
       if (!p.shape[r][c]) continue;
       const nx = p.x + c + ox, ny = p.y + r + oy;
       if (nx < 0 || nx >= COLS || ny >= ROWS) return true;
       if (ny >= 0 && board[ny][nx]) return true;
     }
-  }
   return false;
 }
-
-// ── 회전 ─────────────────────────────────────────────
-function rotate(shape) {
-  const n = shape.length;
-  return shape[0].map((_, c) => shape.map((_, r) => shape[n - 1 - r][c]));
+function rotateShape(s) {
+  const n = s.length;
+  return s[0].map((_, c) => s.map((_, r) => s[n-1-r][c]));
 }
-
 function tryRotate() {
-  const rotated = rotate(piece.shape);
-  const kicks = [0, -1, 1, -2, 2];
-  for (const kick of kicks) {
-    const test = { ...piece, shape: rotated, x: piece.x + kick };
-    if (!collides(test)) { piece = test; return; }
+  const rot = rotateShape(piece.shape);
+  for (const kick of [0,-1,1,-2,2]) {
+    const test = { ...piece, shape: rot, x: piece.x + kick };
+    if (!collides(test)) { piece = test; sfx.rotate(); return; }
   }
 }
-
-// ── 이동 & 낙하 ───────────────────────────────────────
 function move(dx) {
-  if (!collides(piece, dx, 0)) piece.x += dx;
+  if (!collides(piece, dx, 0)) { piece.x += dx; sfx.move(); }
 }
-
 function softDrop() {
   if (!collides(piece, 0, 1)) { piece.y++; score++; updateUI(); }
   else lock();
 }
-
 function hardDrop() {
-  let drop = 0;
-  while (!collides(piece, 0, drop + 1)) drop++;
-  piece.y += drop;
-  score += drop * 2;
+  let d = 0;
+  while (!collides(piece, 0, d+1)) d++;
+  piece.y += d; score += d * 2;
   lock();
 }
-
 function lock() {
-  for (let r = 0; r < piece.shape.length; r++) {
+  for (let r = 0; r < piece.shape.length; r++)
     for (let c = 0; c < piece.shape[r].length; c++) {
       if (!piece.shape[r][c]) continue;
       const ny = piece.y + r;
       if (ny < 0) { endGame(); return; }
       board[ny][piece.x + c] = piece.type;
     }
-  }
+  sfx.lock();
+  lastDrop = performance.now();
   clearLines();
   spawnPiece();
 }
 
-// ── 줄 제거 ───────────────────────────────────────────
-const LINE_SCORES = [0, 100, 300, 500, 800];
-
+// ══════════════════════════════════════════
+// LINE CLEAR + COMBO
+// ══════════════════════════════════════════
 function clearLines() {
   let cleared = 0;
+  const rowsY = [];
   for (let r = ROWS - 1; r >= 0; r--) {
     if (board[r].every(v => v)) {
-      board.splice(r, 1);
-      board.unshift(new Array(COLS).fill(0));
+      rowsY.push(r); board.splice(r, 1); board.unshift(new Array(COLS).fill(0));
       cleared++; r++;
     }
   }
-  if (cleared) {
-    lines += cleared;
-    score += LINE_SCORES[cleared] * level;
-    level = Math.floor(lines / 10) + 1;
-    dropInterval = Math.max(100, 800 - (level - 1) * 70);
-    updateUI();
-  }
+  if (!cleared) { combo = 0; updateComboUI(); return; }
+  combo++;
+  const prevLevel = level;
+  lines += cleared;
+  score += LINE_SCORES[cleared] * level * Math.max(1, combo);
+  level  = Math.floor(lines / 10) + 1;
+  dropInterval = Math.max(80, 800 - (level - 1) * 70);
+  sfx.clear(cleared);
+  spawnParticles(rowsY);
+  if (cleared === 4) { shakeCanvas(); showFloatText('TETRIS!', '#ffe600', 38); }
+  else if (combo > 1) showFloatText(`COMBO x${combo}!`, combo >= 5 ? '#ffe600' : combo >= 3 ? '#ff2d78' : '#00f5ff', 26);
+  if (level > prevLevel) { sfx.levelup(); showLvFlash(); }
+  updateUI();
 }
 
-// ── 게임 오버 ─────────────────────────────────────────
-function endGame() {
+// ══════════════════════════════════════════
+// GAME OVER
+// ══════════════════════════════════════════
+async function endGame() {
   gameOver = true;
   cancelAnimationFrame(animId);
-  showOverlay('GAME OVER', `점수: ${score}`, '다시 시작');
+  sfx.gameover(); stopMusic();
+
+  // 서버에 점수 전송
+  if (authToken && score > 0) {
+    try {
+      await apiFetch('/api/scores', {
+        method: 'POST',
+        body: JSON.stringify({ score, lines, level }),
+      });
+      await loadLeaderboard();
+      await loadMyBest();
+    } catch (_) {}
+  }
+
+  // 오버레이 표시
+  const ov  = document.getElementById('cv-overlay');
+  const sub = authToken ? `점수: ${score.toLocaleString()} (저장됨)` : `점수: ${score.toLocaleString()} (비로그인)`;
+  ov.innerHTML = `
+    <h2 style="color:#ff2d78;text-shadow:0 0 24px #ff2d78">GAME OVER</h2>
+    <p>${sub}</p>
+    <button class="btn btn-primary" id="start-btn">Restart</button>
+  `;
+  ov.classList.remove('hidden');
+  document.getElementById('start-btn').addEventListener('click', startGame);
 }
 
-// ── UI 업데이트 ───────────────────────────────────────
+// ══════════════════════════════════════════
+// UI
+// ══════════════════════════════════════════
 function updateUI() {
-  document.getElementById('score').textContent = score;
+  document.getElementById('score').textContent = score.toLocaleString();
   document.getElementById('level').textContent = level;
   document.getElementById('lines').textContent = lines;
+  updateComboUI();
 }
-
-// ── 그리기 ────────────────────────────────────────────
-function drawBlock(c2d, x, y, type, size = BLOCK) {
-  const color = COLORS[type];
-  c2d.fillStyle = color;
-  c2d.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
-  c2d.fillStyle = 'rgba(255,255,255,0.18)';
-  c2d.fillRect(x * size + 2, y * size + 2, size - 4, 4);
-  c2d.fillStyle = 'rgba(0,0,0,0.25)';
-  c2d.fillRect(x * size + 1, y * size + size - 5, size - 2, 4);
-}
-
-function drawGhost() {
-  let drop = 0;
-  while (!collides(piece, 0, drop + 1)) drop++;
-  ctx.globalAlpha = 0.2;
-  for (let r = 0; r < piece.shape.length; r++) {
-    for (let c = 0; c < piece.shape[r].length; c++) {
-      if (piece.shape[r][c]) drawBlock(ctx, piece.x + c, piece.y + r + drop, piece.type);
-    }
+function updateComboUI() {
+  const num = document.getElementById('combo-num');
+  const lbl = document.getElementById('combo-lbl');
+  if (combo > 1) {
+    num.style.display = 'block';
+    num.textContent   = `x${combo}`;
+    num.style.animation = 'none'; void num.offsetWidth;
+    num.style.animation = 'comboPop 0.3s ease';
+    lbl.textContent = 'combo!';
+  } else {
+    num.style.display = 'none';
+    lbl.textContent = '—';
   }
+}
+
+// ══════════════════════════════════════════
+// DRAW
+// ══════════════════════════════════════════
+function drawBlock(c2d, x, y, type, sz = BLOCK) {
+  c2d.fillStyle = COLORS[type];
+  c2d.fillRect(x*sz+1, y*sz+1, sz-2, sz-2);
+  c2d.fillStyle = 'rgba(255,255,255,0.20)';
+  c2d.fillRect(x*sz+2, y*sz+2, sz-4, 5);
+  c2d.fillStyle = 'rgba(0,0,0,0.26)';
+  c2d.fillRect(x*sz+1, y*sz+sz-5, sz-2, 4);
+}
+function drawGhost() {
+  let d = 0;
+  while (!collides(piece, 0, d+1)) d++;
+  if (d === 0) return;
+  ctx.globalAlpha = 0.13;
+  for (let r = 0; r < piece.shape.length; r++)
+    for (let c = 0; c < piece.shape[r].length; c++)
+      if (piece.shape[r][c]) drawBlock(ctx, piece.x+c, piece.y+r+d, piece.type);
   ctx.globalAlpha = 1;
 }
-
 function drawBoard() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // 격자
-  ctx.strokeStyle = '#1e1e44';
-  ctx.lineWidth = 0.5;
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      ctx.strokeRect(c * BLOCK, r * BLOCK, BLOCK, BLOCK);
-    }
-  }
-
-  // 쌓인 블록
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      if (board[r][c]) drawBlock(ctx, c, r, board[r][c]);
-    }
-  }
-
-  // 고스트
+  ctx.strokeStyle = '#0d0d26'; ctx.lineWidth = 0.5;
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) ctx.strokeRect(c*BLOCK, r*BLOCK, BLOCK, BLOCK);
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (board[r][c]) drawBlock(ctx, c, r, board[r][c]);
   if (!gameOver && !paused) drawGhost();
+  if (!gameOver)
+    for (let r = 0; r < piece.shape.length; r++)
+      for (let c = 0; c < piece.shape[r].length; c++)
+        if (piece.shape[r][c]) drawBlock(ctx, piece.x+c, piece.y+r, piece.type);
+}
+function drawMini(c2d, cvs, pObj) {
+  c2d.clearRect(0, 0, cvs.width, cvs.height);
+  if (!pObj) return;
+  const s = pObj.shape, ns = 22;
+  const ox = Math.floor((cvs.width  / ns - s[0].length) / 2);
+  const oy = Math.floor((cvs.height / ns - s.length)    / 2);
+  for (let r = 0; r < s.length; r++)
+    for (let c = 0; c < s[r].length; c++)
+      if (s[r][c]) drawBlock(c2d, ox+c, oy+r, s[r][c], ns);
+}
+function drawNext() { drawMini(nCtx, nCanvas, nextPiece); }
+function drawHold() { drawMini(hCtx, hCanvas, holdPiece); }
 
-  // 현재 블록
-  if (!gameOver) {
-    for (let r = 0; r < piece.shape.length; r++) {
-      for (let c = 0; c < piece.shape[r].length; c++) {
-        if (piece.shape[r][c]) drawBlock(ctx, piece.x + c, piece.y + r, piece.type);
-      }
+// ══════════════════════════════════════════
+// EFFECTS
+// ══════════════════════════════════════════
+const pLayer = document.getElementById('particle-layer');
+function spawnParticles(rows) {
+  const rect = canvas.getBoundingClientRect();
+  rows.forEach(row => {
+    for (let c = 0; c < COLS; c++) for (let i = 0; i < 4; i++) {
+      const el = document.createElement('div');
+      el.className = 'particle';
+      const tx = (Math.random() - 0.5) * 130, ty = (Math.random() - 1.3) * 110;
+      const sz = 3 + Math.random() * 7;
+      el.style.cssText = `left:${rect.left+(c+.5)*BLOCK}px;top:${rect.top+(row+.5)*BLOCK}px;width:${sz}px;height:${sz}px;background:${BG_COLORS[Math.floor(Math.random()*BG_COLORS.length)]};--tx:${tx}px;--ty:${ty}px`;
+      pLayer.appendChild(el);
+      setTimeout(() => el.remove(), 950);
     }
-  }
+  });
+}
+function shakeCanvas() {
+  canvas.classList.remove('do-shake'); void canvas.offsetWidth; canvas.classList.add('do-shake');
+  setTimeout(() => canvas.classList.remove('do-shake'), 380);
+}
+function showLvFlash() {
+  const el = document.createElement('div'); el.className = 'lv-flash';
+  document.body.appendChild(el); setTimeout(() => el.remove(), 500);
+}
+function showFloatText(text, color, size) {
+  const rect = canvas.getBoundingClientRect();
+  const el = document.createElement('div'); el.className = 'float-text';
+  el.textContent = text;
+  el.style.cssText = `left:${rect.left+rect.width/2}px;top:${rect.top+rect.height/2-20}px;transform:translateX(-50%);color:${color};font-size:${size}px`;
+  document.body.appendChild(el); setTimeout(() => el.remove(), 1150);
 }
 
-function drawNext() {
-  nCtx.clearRect(0, 0, nCanvas.width, nCanvas.height);
-  const s = nextPiece.shape;
-  const ns = 24;
-  const ox = Math.floor((nCanvas.width  / ns - s[0].length) / 2);
-  const oy = Math.floor((nCanvas.height / ns - s.length)    / 2);
-  for (let r = 0; r < s.length; r++) {
-    for (let c = 0; c < s[r].length; c++) {
-      if (s[r][c]) drawBlock(nCtx, ox + c, oy + r, s[r][c], ns);
-    }
-  }
-}
-
-// ── 게임 루프 ─────────────────────────────────────────
+// ══════════════════════════════════════════
+// GAME LOOP
+// ══════════════════════════════════════════
 function loop(ts) {
-  if (!paused && !gameOver) {
-    if (ts - lastDrop > dropInterval) {
-      softDrop();
-      lastDrop = ts;
-    }
-  }
-  drawBoard();
-  drawNext();
+  if (!paused && !gameOver && ts - lastDrop > dropInterval) { softDrop(); lastDrop = ts; }
+  drawBoard(); drawNext();
   animId = requestAnimationFrame(loop);
 }
 
-// ── 키 입력 ───────────────────────────────────────────
+// ══════════════════════════════════════════
+// INPUT
+// ══════════════════════════════════════════
 document.addEventListener('keydown', e => {
-  if (gameOver || paused && e.key !== 'p' && e.key !== 'P') return;
+  if (e.key === 'm' || e.key === 'M') { toggleMusic(); return; }
+  if (!gameStarted || gameOver) return;
+  if (paused && e.key !== 'p' && e.key !== 'P') return;
   switch (e.key) {
-    case 'ArrowLeft':  e.preventDefault(); move(-1);       break;
-    case 'ArrowRight': e.preventDefault(); move(1);        break;
-    case 'ArrowDown':  e.preventDefault(); softDrop();     break;
-    case 'ArrowUp':    e.preventDefault(); tryRotate();    break;
-    case ' ':          e.preventDefault(); hardDrop();     break;
+    case 'ArrowLeft':  e.preventDefault(); move(-1);     break;
+    case 'ArrowRight': e.preventDefault(); move(1);      break;
+    case 'ArrowDown':  e.preventDefault(); softDrop();   break;
+    case 'ArrowUp':    e.preventDefault(); tryRotate();  break;
+    case ' ':          e.preventDefault(); hardDrop();   break;
+    case 'c': case 'C': doHold();      break;
     case 'p': case 'P': togglePause(); break;
   }
 });
 
-// ── 일시정지 ─────────────────────────────────────────
+// ══════════════════════════════════════════
+// PAUSE
+// ══════════════════════════════════════════
 function togglePause() {
   if (gameOver) return;
-  paused = !paused;
-  lastDrop = performance.now();
-  document.getElementById('pause-btn').textContent = paused ? '계속하기' : '일시정지';
+  paused = !paused; lastDrop = performance.now();
+  document.getElementById('pause-btn').textContent = paused ? 'Resume' : 'Pause';
   if (paused) {
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#aaaaff';
-    ctx.font = 'bold 28px Courier New';
-    ctx.textAlign = 'center';
-    ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2);
-    ctx.textAlign = 'left';
+    ctx.fillStyle = '#00f5ff'; ctx.shadowColor = '#00f5ff'; ctx.shadowBlur = 24;
+    ctx.font = 'bold 24px Courier New'; ctx.textAlign = 'center';
+    ctx.fillText('PAUSED', canvas.width/2, canvas.height/2);
+    ctx.shadowBlur = 0; ctx.textAlign = 'left';
   }
 }
 
-// ── 오버레이 ─────────────────────────────────────────
-function showOverlay(title, sub, btnText) {
-  const overlay = document.getElementById('overlay');
-  overlay.innerHTML = `
-    <h2>${title}</h2>
-    <p>${sub}</p>
-    <button class="btn btn-primary" id="start-btn">${btnText}</button>
-  `;
-  overlay.classList.remove('hidden');
-  document.getElementById('start-btn').addEventListener('click', startGame);
-}
-
+// ══════════════════════════════════════════
+// START / RESTART
+// ══════════════════════════════════════════
 function startGame() {
-  document.getElementById('overlay').classList.add('hidden');
-  cancelAnimationFrame(animId);
+  ensureAudio();
+  document.getElementById('cv-overlay').classList.add('hidden');
+  cancelAnimationFrame(animId); stopMusic();
   init();
-  document.getElementById('pause-btn').textContent = '일시정지';
+  gameStarted = true;
+  document.getElementById('pause-btn').textContent = 'Pause';
+  if (musicOn) startMusic();
+  lastDrop = performance.now();
   animId = requestAnimationFrame(loop);
 }
 
-// ── 버튼 이벤트 ───────────────────────────────────────
 document.getElementById('start-btn').addEventListener('click', startGame);
-
 document.getElementById('pause-btn').addEventListener('click', togglePause);
+document.getElementById('music-btn').addEventListener('click', toggleMusic);
 
 document.getElementById('restart-btn').addEventListener('click', () => {
-  cancelAnimationFrame(animId);
+  cancelAnimationFrame(animId); stopMusic();
   init();
-  document.getElementById('overlay').classList.add('hidden');
-  document.getElementById('pause-btn').textContent = '일시정지';
+  document.getElementById('cv-overlay').classList.add('hidden');
+  document.getElementById('pause-btn').textContent = 'Pause';
   paused = false;
+  if (musicOn) startMusic();
+  lastDrop = performance.now();
   animId = requestAnimationFrame(loop);
 });
+
+// ══════════════════════════════════════════
+// PAGE NAVIGATION
+// ══════════════════════════════════════════
+document.getElementById('play-btn').addEventListener('click', () => {
+  ensureAudio(); stopBg();
+  document.getElementById('landing').classList.add('hidden');
+  document.getElementById('game-page').classList.remove('hidden');
+  loadLeaderboard(); loadMyBest();
+});
+
+document.getElementById('back-btn').addEventListener('click', () => {
+  cancelAnimationFrame(animId); stopMusic(); gameStarted = false;
+  document.getElementById('game-page').classList.add('hidden');
+  document.getElementById('landing').classList.remove('hidden');
+  loadGlobalBest(); startBg();
+});
+
+// ══════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════
+refreshLandingAuth();
+loadGlobalBest();
 </script>
 </body>
 </html>
